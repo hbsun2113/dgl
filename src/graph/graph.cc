@@ -13,7 +13,7 @@
 
 namespace dgl {
 
-Graph::Graph(IdArray src_ids, IdArray dst_ids, IdArray edge_ids, size_t num_nodes,
+Graph::Graph(IdArray src_ids, IdArray dst_ids, IdArray edge_ids, size_t num_nodes, //hbsun:edge_ids已经是有序的了吗？
     bool multigraph): is_multigraph_(multigraph) {
   CHECK(IsValidIdArray(src_ids));
   CHECK(IsValidIdArray(dst_ids));
@@ -22,7 +22,7 @@ Graph::Graph(IdArray src_ids, IdArray dst_ids, IdArray edge_ids, size_t num_node
   num_edges_ = src_ids->shape[0];
   CHECK(static_cast<int64_t>(num_edges_) == dst_ids->shape[0]) << "vectors in COO must have the same length";
   CHECK(static_cast<int64_t>(num_edges_) == edge_ids->shape[0]) << "vectors in COO must have the same length";
-  const dgl_id_t *src_data = static_cast<dgl_id_t*>(src_ids->data);
+  const dgl_id_t *src_data = static_cast<dgl_id_t*>(src_ids->data); //hbsun:进行类型转换
   const dgl_id_t *dst_data = static_cast<dgl_id_t*>(dst_ids->data);
   const dgl_id_t *edge_data = static_cast<dgl_id_t*>(edge_ids->data);
   all_edges_src_.reserve(num_edges_);
@@ -202,6 +202,8 @@ IdArray Graph::EdgeId(dgl_id_t src, dgl_id_t dst) const {
 }
 
 // O(E*k) pretty slow
+// hbsun:为什么不维护这样一个数据结构：unordered_map<pair<src,des>,edgeid>。或者我可能直接创建一个Edge class
+// 这里也可以使用二分法或者快排进行优化？
 Graph::EdgeArray Graph::EdgeIds(IdArray src_ids, IdArray dst_ids) const {
   CHECK(IsValidIdArray(src_ids)) << "Invalid src id array.";
   CHECK(IsValidIdArray(dst_ids)) << "Invalid dst id array.";
@@ -400,7 +402,7 @@ Graph::EdgeArray Graph::Edges(const std::string &order) const {
     int64_t* eid_ptr = static_cast<int64_t*>(eid->data);
     std::copy(all_edges_src_.begin(), all_edges_src_.end(), src_ptr);
     std::copy(all_edges_dst_.begin(), all_edges_dst_.end(), dst_ptr);
-    for (uint64_t eid = 0; eid < num_edges_; ++eid) {
+    for (uint64_t eid = 0; eid < num_edges_; ++eid) { //hbsun:这里也可以用fill吧？经过试验，fill更快
       eid_ptr[eid] = eid;
     }
   }
@@ -458,7 +460,7 @@ Subgraph Graph::VertexSubgraph(IdArray vids) const {
       const dgl_id_t oldsucc = adjlist_[oldvid].succ[j];
       if (oldv2newv.count(oldsucc)) {
         const dgl_id_t newsucc = oldv2newv[oldsucc];
-        edges.push_back(adjlist_[oldvid].edge_id[j]);
+        edges.push_back(adjlist_[oldvid].edge_id[j]); //hbsun：里面存的都是 old_edgeId
         rst.graph->AddEdge(newvid, newsucc);
       }
     }
@@ -473,13 +475,13 @@ Subgraph Graph::EdgeSubgraph(IdArray eids) const {
 
   const auto len = eids->shape[0];
   std::unordered_map<dgl_id_t, dgl_id_t> oldv2newv;
-  std::vector<dgl_id_t> nodes;
+  std::vector<dgl_id_t> nodes; //hbsun:存的是old_verid
   const int64_t* eid_data = static_cast<int64_t*>(eids->data);
 
   for (int64_t i = 0; i < len; ++i) {
     dgl_id_t src_id = all_edges_src_[eid_data[i]];
     dgl_id_t dst_id = all_edges_dst_[eid_data[i]];
-    if (oldv2newv.insert(std::make_pair(src_id, oldv2newv.size())).second)
+    if (oldv2newv.insert(std::make_pair(src_id, oldv2newv.size())).second) //hbsun:如果为false，就是没有插进去。
       nodes.push_back(src_id);
     if (oldv2newv.insert(std::make_pair(dst_id, oldv2newv.size())).second)
       nodes.push_back(dst_id);
@@ -538,7 +540,7 @@ std::vector<IdArray> Graph::GetAdj(bool transpose, const std::string &fmt) const
       // In-edges.
       adjlist = &reverse_adjlist_;
     }
-    indptr_data[0] = 0;
+    indptr_data[0] = 0; //hbsun:应该是用来记录长度的
     for (size_t i = 0; i < adjlist->size(); i++) {
       indptr_data[i + 1] = indptr_data[i] + adjlist->at(i).succ.size();
       std::copy(adjlist->at(i).succ.begin(), adjlist->at(i).succ.end(),

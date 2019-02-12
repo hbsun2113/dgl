@@ -146,7 +146,7 @@ class Graph: public GraphInterface {
    * \param radius The radius of the neighborhood. Default is immediate neighbor (radius=1).
    * \return the predecessor id array.
    */
-  IdArray Predecessors(dgl_id_t vid, uint64_t radius = 1) const;
+  IdArray Predecessors(dgl_id_t vid, uint64_t radius = 1) const;//似乎现在只支持直接连接的
 
   /*!
    * \brief Find the successors of a vertex.
@@ -230,6 +230,7 @@ class Graph: public GraphInterface {
    * \param sorted Whether the returned edge list is sorted by their src and dst ids
    * \return the id arrays of the two endpoints of the edges.
    */
+  //hbsun：这里注释写错了，参数不是true。
   EdgeArray Edges(const std::string &order = "") const;
 
   /*!
@@ -383,7 +384,7 @@ class Graph: public GraphInterface {
  protected:
   friend class GraphOp;
   /*! \brief Internal edge list type */
-  struct EdgeList {
+  struct EdgeList { //hbsun:是以每个vertex为对象来记录信息的，包括它的后继节点和对应的边。
     /*! \brief successor vertex list */
     std::vector<dgl_id_t> succ;
     /*! \brief predecessor vertex list */
