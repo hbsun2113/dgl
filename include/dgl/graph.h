@@ -230,7 +230,7 @@ class Graph: public GraphInterface {
    * \param sorted Whether the returned edge list is sorted by their src and dst ids
    * \return the id arrays of the two endpoints of the edges.
    */
-  //hbsun：这里注释写错了，参数不是true。
+  //hbsun：这里注释写错了，参数不是true
   EdgeArray Edges(const std::string &order = "") const;
 
   /*!
@@ -387,7 +387,7 @@ class Graph: public GraphInterface {
   struct EdgeList { //hbsun:是以每个vertex为对象来记录信息的，包括它的后继节点和对应的边。
     /*! \brief successor vertex list */
     std::vector<dgl_id_t> succ;
-    /*! \brief predecessor vertex list */
+    /*! \brief out edge list */
     std::vector<dgl_id_t> edge_id;
   };
   typedef std::vector<EdgeList> AdjacencyList;
