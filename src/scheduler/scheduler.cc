@@ -10,6 +10,7 @@
 namespace dgl {
 namespace sched {
 
+    //hbsun: 按照节点的入度进行分组
 std::vector<IdArray> DegreeBucketing(const IdArray& msg_ids, const IdArray& vids,
         const IdArray& recv_ids) {
     auto n_msgs = msg_ids->shape[0];
@@ -25,6 +26,7 @@ std::vector<IdArray> DegreeBucketing(const IdArray& msg_ids, const IdArray& vids
     }
 
     // bkt: deg->dsts
+    // hbsun:degree->dsts 即针对每个in-degree统计它的目的地节点集合。其实就是按入度进行分组
     std::unordered_map<int64_t, std::vector<int64_t>> bkt;
     for (const auto& it : in_edges) {
         bkt[it.second.size()].push_back(it.first);
@@ -64,8 +66,8 @@ std::vector<IdArray> DegreeBucketing(const IdArray& msg_ids, const IdArray& vids
         const int64_t deg = it.first;
         const int64_t bucket_size = it.second.size();
         *deg_ptr++ = deg;
-        *nsec_ptr++ = bucket_size;
-        *msec_ptr++ = deg * bucket_size;
+        *nsec_ptr++ = bucket_size; // hbsun:number of nodes in each bucket
+        *msec_ptr++ = deg * bucket_size; // hbsun:number of messages in each bucket
         for (const auto dst : it.second) {  // for each dst in this bucket
             *nid_ptr++ = dst;
             for (const auto mid : in_edges[dst]) {  // for each in edge of dst

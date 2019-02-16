@@ -21,7 +21,7 @@ namespace dgl {
  *
  * DGL's graph is directed. Vertices are integers enumerated from zero.
  */
-class ImmutableGraph: public GraphInterface {
+class ImmutableGraph: public GraphInterface {  //不变图
  public:
   typedef struct {
     IdArray indptr, indices, id;

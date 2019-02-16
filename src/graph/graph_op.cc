@@ -128,7 +128,7 @@ IdArray GraphOp::MapParentIdToSubgraphId(IdArray parent_vids, IdArray query) {
       }
     }
   } else {
-    std::unordered_map<dgl_id_t, dgl_id_t> parent_map;
+    std::unordered_map<dgl_id_t, dgl_id_t> parent_map; // hbsun:parentid->childid
     for (int64_t i = 0; i < parent_len; i++) {
       const dgl_id_t id = parent_data[i];
       parent_map[id] = i;

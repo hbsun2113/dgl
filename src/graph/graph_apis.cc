@@ -178,6 +178,7 @@ DGL_REGISTER_GLOBAL("graph_index._CAPI_DGLGraphNumVertices")
 .set_body([] (DGLArgs args, DGLRetValue* rv) {
     GraphHandle ghandle = args[0];
     const GraphInterface* gptr = static_cast<GraphInterface*>(ghandle);
+    gptr->NumEdges();
     *rv = static_cast<int64_t>(gptr->NumVertices());
   });
 

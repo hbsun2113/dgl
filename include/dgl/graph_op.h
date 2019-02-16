@@ -22,7 +22,7 @@ class GraphOp {
    *
    * \param graph The input graph.
    * \param backtracking Whether the backtracking edges are included or not
-   * \return the line graph
+     * \return the line graph
    */
   static Graph LineGraph(const Graph* graph, bool backtracking);
 
@@ -45,7 +45,7 @@ class GraphOp {
    *
    * This is a reverse operation of DisjointUnion. The graph will be partitioned
    * into num graphs. This requires the given number of partitions to evenly
-   * divides the number of nodes in the graph.
+   * divides the number of nodes in the graph. //hbsun:num 要 整除 点的总量
    * 
    * \param graph The graph to be partitioned.
    * \param num The number of partitions.
@@ -73,16 +73,16 @@ class GraphOp {
    *
    * \param parent_vid_map An array that maps the vids in the parent graph to the
    * subgraph. The elements store the vertex Ids in the parent graph, and the
-   * indices indicate the vertex Ids in the subgraph.
-   * \param query The vertex Ids in the parent graph.
-   * \return an Id array that contains the subgraph node Ids.
+   * indices indicate the vertex Ids in the subgraph. // hbsun:注意索引是子图id,值是母图id
+   * \param query The vertex Ids in the parent graph. // 给的是母图id
+   * \return an Id array that contains the subgraph node Ids. // 返回的是子图id
    */
   static IdArray MapParentIdToSubgraphId(IdArray parent_vid_map, IdArray query);
 
   /*!
    * \brief Expand an Id array based on the offset array.
    *
-   * For example,
+   * For example,F
    * ids:     [0, 1, 2, 3, 4],
    * offset:  [0, 2, 2, 5, 6, 7],
    * result:  [0, 0, 2, 2, 2, 3, 4].

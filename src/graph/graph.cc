@@ -162,6 +162,7 @@ IdArray Graph::Predecessors(dgl_id_t vid, uint64_t radius) const {
 }
 
 // The data is copy-out; support zero-copy?
+// hbsun:https://discuss.dgl.ai/t/implemention-copy-out-vs-zero-copy/106/2
 IdArray Graph::Successors(dgl_id_t vid, uint64_t radius) const {
   CHECK(HasVertex(vid)) << "invalid vertex: " << vid;
   CHECK(radius >= 1) << "invalid radius: " << radius;

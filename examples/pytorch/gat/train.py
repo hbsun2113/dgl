@@ -65,8 +65,9 @@ class GraphAttention(nn.Module):
             h = self.feat_drop(h)
         ft = self.fc(h).reshape((h.shape[0], self.num_heads, -1))  # NxHxD'
         head_ft = ft.transpose(0, 1)  # HxNxD'
-        a1 = torch.bmm(head_ft, self.attn_l).transpose(0, 1)  # NxHx1
+        a1 = torch.bmm(head_ft, self.attn_l).transpose(0, 1)  # NxHx1 N既是节点数目又是数据行数
         a2 = torch.bmm(head_ft, self.attn_r).transpose(0, 1)  # NxHx1
+        # print('hbsun-debug', a1.shape, self.g.number_of_nodes())
         if self.feat_drop:
             ft = self.feat_drop(ft)
         self.g.ndata.update({'ft' : ft, 'a1' : a1, 'a2' : a2})
