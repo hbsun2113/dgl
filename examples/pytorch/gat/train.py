@@ -39,12 +39,12 @@ class GraphAttention(nn.Module):
         if feat_drop:
             self.feat_drop = nn.Dropout(feat_drop)
         else:
-            self.feat_drop = None
+            self.feat_drop = lambda x : x
         if attn_drop:
             self.attn_drop = nn.Dropout(attn_drop)
         else:
-            self.attn_drop = None
-        self.attn_l = nn.Parameter(torch.Tensor(size=(num_heads, out_dim, 1)))
+            self.attn_drop = lambda x : x
+        self.attn_l = nn.Parameter(torch.Tensor(size=(num_heads, out_dim, 1)))  # 它俩是attention的参数，应该分为源、目的地
         self.attn_r = nn.Parameter(torch.Tensor(size=(num_heads, out_dim, 1)))
         nn.init.xavier_normal_(self.fc.weight.data, gain=1.414)
         nn.init.xavier_normal_(self.attn_l.data, gain=1.414)
@@ -58,27 +58,53 @@ class GraphAttention(nn.Module):
             else:
                 self.res_fc = None
 
-    def forward(self, inputs):
+    def forward1(self, inputs): # 和论文保持一致，先除以分母，再计算公式4
         # prepare
-        h = inputs  # NxD
-        if self.feat_drop:
-            h = self.feat_drop(h)
+        h = self.feat_drop(inputs)  # NxD
         ft = self.fc(h).reshape((h.shape[0], self.num_heads, -1))  # NxHxD'
         head_ft = ft.transpose(0, 1)  # HxNxD'
         a1 = torch.bmm(head_ft, self.attn_l).transpose(0, 1)  # NxHx1 N既是节点数目又是数据行数
         a2 = torch.bmm(head_ft, self.attn_r).transpose(0, 1)  # NxHx1
         # print('hbsun-debug', a1.shape, self.g.number_of_nodes())
-        if self.feat_drop:
-            ft = self.feat_drop(ft)
         self.g.ndata.update({'ft' : ft, 'a1' : a1, 'a2' : a2})
         # 1. compute edge attention
         self.g.apply_edges(self.edge_attention)
-        # 2. compute two results: one is the node features scaled by the dropped,
-        # unnormalized attention values; another is the normalizer of the attention values.
-        self.g.update_all([fn.src_mul_edge('ft', 'a_drop', 'ft'), fn.copy_edge('a', 'a')],
-                          [fn.sum('ft', 'ft'), fn.sum('a', 'z')])
+        # 2. compute softmax in two parts: exp(x - max(x)) and sum(exp(x - max(x)))
+        # 注意这个可能和论文有出入，它多减了一个max：https://github.com/Diego999/pyGAT/issues/16
+        self.edge_softmax()  # 根据e,计算出分子a_drop和分母z
+        # 2. compute the aggregated node features scaled by the dropped,
+        # unnormalized attention values.
+        self.g.apply_edges(lambda edges : {'a_drop' : edges.data['a_drop'] / edges.dst['z']})
+        self.g.update_all(fn.src_mul_edge('ft', 'a_drop', 'ft'), fn.sum('ft', 'ft'))  # 公式4，但是缺少公式3中的分母
+        ret = self.g.ndata['ft']
+        # 4. residual
+        if self.residual:
+            if self.res_fc is not None:
+                resval = self.res_fc(h).reshape((h.shape[0], self.num_heads, -1))  # NxHxD'
+            else:
+                resval = torch.unsqueeze(h, 1)  # Nx1xD'
+            ret = resval + ret
+        return ret
+
+    def forward(self, inputs):
+        # prepare
+        h = self.feat_drop(inputs)  # NxD
+        ft = self.fc(h).reshape((h.shape[0], self.num_heads, -1))  # NxHxD'
+        head_ft = ft.transpose(0, 1)  # HxNxD'
+        a1 = torch.bmm(head_ft, self.attn_l).transpose(0, 1)  # NxHx1 N既是节点数目又是数据行数
+        a2 = torch.bmm(head_ft, self.attn_r).transpose(0, 1)  # NxHx1
+        # print('hbsun-debug', a1.shape, self.g.number_of_nodes())
+        self.g.ndata.update({'ft' : ft, 'a1' : a1, 'a2' : a2})
+        # 1. compute edge attention
+        self.g.apply_edges(self.edge_attention)
+        # 2. compute softmax in two parts: exp(x - max(x)) and sum(exp(x - max(x)))
+        # 注意这个可能和论文有出入，它多减了一个max：https://github.com/Diego999/pyGAT/issues/16
+        self.edge_softmax()  # 根据e,计算出分子a_drop和分母z
+        # 2. compute the aggregated node features scaled by the dropped,
+        # unnormalized attention values.
+        self.g.update_all(fn.src_mul_edge('ft', 'a_drop', 'ft'), fn.sum('ft', 'ft'))  # 公式4，但是缺少公式3中的分母
         # 3. apply normalizer
-        ret = self.g.ndata['ft'] / self.g.ndata['z']  # NxHxD'
+        ret = self.g.ndata['ft'] / self.g.ndata['z']  # NxHxD' #是论文中的alpha,公式2
         # 4. residual
         if self.residual:
             if self.res_fc is not None:
@@ -91,10 +117,17 @@ class GraphAttention(nn.Module):
     def edge_attention(self, edges):
         # an edge UDF to compute unnormalized attention values from src and dst
         a = self.leaky_relu(edges.src['a1'] + edges.dst['a2'])
-        a = torch.exp(a).clamp(-10, 10)  # use clamp to avoid overflow
-        if self.attn_drop:
-            a_drop = self.attn_drop(a)
-        return {'a' : a, 'a_drop' : a_drop}
+        return {'a' : a} # 论文中的e
+
+    def edge_softmax(self):
+        # compute the max
+        self.g.update_all(fn.copy_edge('a', 'a'), fn.max('a', 'a_max'))
+        # minus the max and exp
+        self.g.apply_edges(lambda edges : {'a' : torch.exp(edges.data['a'] - edges.dst['a_max'])})
+        # compute dropout
+        self.g.apply_edges(lambda edges : {'a_drop' : self.attn_drop(edges.data['a'])})
+        # compute normalizer
+        self.g.update_all(fn.copy_edge('a', 'a'), fn.sum('a', 'z'))
 
 class GAT(nn.Module):
     def __init__(self,
@@ -248,7 +281,7 @@ if __name__ == '__main__':
     register_data_args(parser)
     parser.add_argument("--gpu", type=int, default=-1,
                         help="which GPU to use. Set -1 to use CPU.")
-    parser.add_argument("--epochs", type=int, default=300,
+    parser.add_argument("--epochs", type=int, default=200,
                         help="number of training epochs")
     parser.add_argument("--num-heads", type=int, default=8,
                         help="number of hidden attention heads")

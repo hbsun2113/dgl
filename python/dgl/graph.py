@@ -2486,6 +2486,7 @@ class DGLGraph(object):
         """Send messages through all edges and update all nodes.
 
         Optionally, apply a function to update the node features after receive.
+        我理解是边中取特征，施加到节点上
 
         This is a convenient combination for performing
         ``send(self, self.edges(), message_func)`` and
